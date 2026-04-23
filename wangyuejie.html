@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>杭州地铁 | 智轨之城 · 呼啸互联</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Inter', 'SF Pro Text', system-ui, -apple-system, Roboto, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: #eef2f5;
+        }
+
+        .fullscreen-map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        #viewDiv {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 中央悬浮搜索岛 */
+        .center-search-island {
+            position: absolute;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 45;
+            width: auto;
+            min-width: 380px;
+            max-width: 620px;
+            background: rgba(10, 15, 22, 0.78);
+            backdrop-filter: blur(20px);
+            border-radius: 80px;
+            padding: 6px 12px 6px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(100, 180, 250, 0.5);
+            transition: all 0.2s;
+        }
+
+        .search-logo span {
+            font-weight: 700;
+            font-size: 1rem;
+            background: linear-gradient(120deg, #3cc, #2a8cff);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .search-hub {
+            flex: 1;
+        }
+
+        .esri-search {
+            border-radius: 60px !important;
+            background: rgba(0, 0, 0, 0.85) !important;
+            backdrop-filter: blur(12px);
+            border: 1px solid #2a8cff !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+            width: 100% !important;
+        }
+
+        .esri-search__input {
+            color: #ffffff !important;
+        }
+
+        .esri-search__input::placeholder {
+            color: #aad4ff !important;
+        }
+
+        /* 左下角：轨道轮盘控制塔 */
+        .metro-control-pod {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            width: 310px;
+            background: rgba(15, 22, 32, 0.88);
+            backdrop-filter: blur(24px);
+            border-radius: 40px;
+            border: 1px solid rgba(80, 160, 255, 0.4);
+            padding: 16px 0 12px 0;
+            z-index: 35;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+        }
+
+        .pod-section {
+            margin: 6px 16px 12px 16px;
+        }
+
+        .pod-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8ebaff;
+            margin-bottom: 12px;
+            border-left: 3px solid #2a8cff;
+            padding-left: 10px;
+        }
+
+        .rainbow-switches {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .metro-badge {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #fff;
+            padding: 6px 0;
+            text-align: center;
+            transition: 0.2s;
+            border-bottom: 2px solid;
+        }
+
+        .line-1 { border-bottom-color: #E60012; }
+        .line-2 { border-bottom-color: #FFA500; }
+        .line-3 { border-bottom-color: #FFDD33; }
+        .line-4 { border-bottom-color: #00A64E; }
+        .line-5 { border-bottom-color: #00B2E3; }
+        .line-6 { border-bottom-color: #0055AA; }
+        .line-7 { border-bottom-color: #8E44AD; }
+
+        /* 右侧信息流轨道 */
+        .right-infotrack {
+            position: absolute;
+            right: 24px;
+            top: 100px;
+            bottom: 24px;
+            width: 290px;
+            background: rgba(12, 18, 27, 0.7);
+            backdrop-filter: blur(24px);
+            border-radius: 36px;
+            border: 1px solid rgba(100, 180, 250, 0.35);
+            z-index: 35;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 18px 12px 20px 12px;
+            gap: 14px;
+            scrollbar-width: thin;
+        }
+
+        .right-infotrack::-webkit-scrollbar { width: 3px; }
+        .right-infotrack::-webkit-scrollbar-track { background: #1e2a3a; border-radius: 10px; }
+        .right-infotrack::-webkit-scrollbar-thumb { background: #2a8cff; border-radius: 10px; }
+
+        .track-card {
+            background: rgba(25, 35, 48, 0.75);
+            backdrop-filter: blur(4px);
+            border-radius: 28px;
+            padding: 14px 14px;
+            border-left: 4px solid #4aa5ff;
+            transition: 0.1s;
+        }
+
+        .track-card .head {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: #ffeaac;
+            margin-bottom: 8px;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .stat-digit {
+            font-size: 1.3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #f9f0c0, #ffd966);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .tiny-meta {
+            font-size: 0.65rem;
+            color: #bdd4ff;
+            margin-top: 6px;
+        }
+
+        .esri-widget {
+            background: rgba(0, 0, 0, 0.55) !important;
+            border: none !important;
+            border-radius: 24px !important;
+            color: #eef !important;
+        }
+
+        .esri-layer-list__item,
+        .esri-legend__service {
+            color: #f8faff !important;
+        }
+
+        .esri-zoom, .esri-scale-bar {
+            background: rgba(0, 0, 0, 0.7) !important;
+            border-radius: 40px !important;
+            backdrop-filter: blur(4px);
+        }
+
+        /* 移动端响应 */
+        @media (max-width: 780px) {
+            .right-infotrack { width: 260px; right: 12px; top: 90px; }
+            .metro-control-pod { width: 270px; left: 12px; bottom: 12px; }
+            .center-search-island { min-width: 280px; top: 14px; padding: 4px 12px 4px 16px; }
+        }
+
+        /* 加载提示美观置于左下角 */
+        .loading-message {
+            position: absolute;
+            bottom: 20px;
+            left: 24px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 40px;
+            padding: 6px 16px;
+            font-size: 11px;
+            color: #d4ecff;
+            z-index: 40;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<div class="fullscreen-map">
+    <div id="viewDiv"></div>
+</div>
+
+<!-- 中央悬浮搜索岛 -->
+<div class="center-search-island">
+    <div class="search-logo"><span>🚇 杭城脉搏</span></div>
+    <div class="search-hub" id="searchWidgetContainer"></div>
+    <div style="font-size: 0.6rem; color: #88aaff;">智轨 · 一触即达</div>
+</div>
+
+<!-- 左下角：轨道轮盘控制塔 -->
+<div class="metro-control-pod">
+    <div class="pod-section">
+        <div class="pod-title">🌈 彩虹线路 · 便捷导览</div>
+        <div class="rainbow-switches" id="lineLegendContainer">
+            <span class="metro-badge line-1">① 红</span>
+            <span class="metro-badge line-2">② 橙</span>
+            <span class="metro-badge line-3">③ 黄</span>
+            <span class="metro-badge line-4">④ 绿</span>
+            <span class="metro-badge line-5">⑤ 青</span>
+            <span class="metro-badge line-6">⑥ 蓝</span>
+            <span class="metro-badge line-7">⑦ 紫</span>
+        </div>
+    </div>
+
+    <div class="pod-section">
+        <div class="pod-title">⚙️ 控制中心 · 底图库</div>
+        <div id="basemapCompactContainer" style="max-height: 80px; overflow: auto;"></div>
+    </div>
+
+    <div class="pod-section">
+        <div class="pod-title">📡 轨道图层显隐</div>
+        <div id="layerCompactContainer" style="font-size: 0.7rem;"></div>
+    </div>
+
+    <div class="pod-section">
+        <div class="pod-title">🎨 图例速览</div>
+        <div id="legendCompactContainer" style="font-size: 0.7rem;"></div>
+    </div>
+</div>
+
+<!-- 右侧信息流轨道 -->
+<div class="right-infotrack">
+    <div class="track-card">
+        <div class="head"><span>🚄 运营里程碑</span></div>
+        <div><span class="stat-digit">12</span> 条运营线路 · <span class="stat-digit">516</span> km 总里程</div>
+        <div><span class="stat-digit">262</span> 座车站 · <span class="stat-digit">46</span> 座换乘枢纽</div>
+        <div class="tiny-meta">2025年12月31日单日客流量创下581.58万人次新高</div>
+    </div>
+
+    <div class="track-card">
+        <div class="head"><span>⚡ 都市联动脉搏</span></div>
+        <div>2025年全年总客流15.01亿人次 · 日均客流411.37万人次</div>
+        <div>客流强度位居全国前列，百站百景，7×24小时运转</div>
+        <div class="tiny-meta">📍 1号线西延段日均40万人次，6号线西延段日均25万人次</div>
+    </div>
+
+    <div class="track-card">
+        <div class="head"><span>🏗️ 四期·五期 宏图</span></div>
+        <div>4号线三期、12号线一期、15号线一期全面推进，2027年底具备开通条件</div>
+        <div>五期规划即将上报，总里程约150km，拟建地铁、临平等轨道交通线</div>
+        <div class="tiny-meta">* 四期80余座车站同步建设，未来将形成更加便捷的出行网络</div>
+    </div>
+
+    <div class="track-card">
+        <div class="head"><span>🌉 过江通道 · 城市脊梁</span></div>
+        <div>1号线/6号线为核心过江动脉，串联萧山、滨江与核心城区</div>
+        <div>日均跨江客流约百万人次，串联钱塘两岸经济圈</div>
+    </div>
+
+    <div class="track-card">
+        <div class="head"><span>🎫 贴心乘坐助手</span></div>
+        <div>✓ 首末班车时刻灵活 ✓ 换乘接驳指引 ✓ 智能失物招领</div>
+        <div class="tiny-meta">🚇 搜索「龙翔桥」「火车东站」「西湖文化广场」即时定位</div>
+    </div>
+</div>
+
+<div class="loading-message" id="loadingMsg">⚡ 解码杭州地铁 · 实时轨道分布图中</div>
+
+<script src="https://js.arcgis.com/4.29/"></script>
+<script>
+    require([
+        "esri/WebMap",
+        "esri/views/MapView",
+        "esri/config",
+        "esri/widgets/ScaleBar",
+        "esri/widgets/Legend",
+        "esri/widgets/Search",
+        "esri/widgets/LayerList",
+        "esri/widgets/BasemapGallery"
+    ], function(WebMap, MapView, esriConfig, ScaleBar, Legend, Search, LayerList, BasemapGallery) {
+
+        const portalUrl = "https://www.geosceneonline.cn/geoscene";
+        esriConfig.portalUrl = portalUrl;
+        const metroMapId = "e1f7c178cb6c4bc9874dc170e1d8e853";
+
+        const webmap = new WebMap({
+            portalItem: { id: metroMapId }
+        });
+
+        const view = new MapView({
+            container: "viewDiv",
+            map: webmap,
+            center: [120.1551, 30.2741],
+            zoom: 10.5,
+            constraints: { snapToZoom: false }
+        });
+
+        view.when(() => {
+            console.log("杭州地铁分布地图加载成功 | 比例尺已移至右上角，加载提示移至左下角");
+            const loadingDiv = document.getElementById("loadingMsg");
+            if (loadingDiv) loadingDiv.style.display = "none";
+
+            // ★ 比例尺放到右上角，彻底避免遮挡
+            const scaleBar = new ScaleBar({ view: view, unit: "metric", style: "ruler" });
+            view.ui.add(scaleBar, "top-right");
+
+            // 搜索微件居中
+            const searchWidget = new Search({
+                view: view,
+                includeDefaultSources: true,
+                placeholder: "🔍 搜索地铁站 / 换乘枢纽 / 商圈",
+                autoNavigate: true,
+                locationEnabled: true
+            });
+            const searchContainer = document.getElementById("searchWidgetContainer");
+            if (searchContainer) searchWidget.container = searchContainer;
+
+            // 图层列表
+            const layerList = new LayerList({
+                view: view,
+                visibilityAppearance: "checkbox",
+                listItemCreatedFunction: (event) => {
+                    if (event.item.layer.type === "group") event.item.opened = true;
+                }
+            });
+            const layerDiv = document.getElementById("layerCompactContainer");
+            if (layerDiv) layerList.container = layerDiv;
+
+            // 图例
+            const legend = new Legend({
+                view: view,
+                style: "card",
+                respectLayerVisibility: true
+            });
+            const legendDiv = document.getElementById("legendCompactContainer");
+            if (legendDiv) legend.container = legendDiv;
+
+            // 底图库
+            const basemapGallery = new BasemapGallery({
+                view: view,
+                source: { portal: { url: esriConfig.portalUrl } }
+            });
+            const bassDiv = document.getElementById("basemapCompactContainer");
+            if (bassDiv) basemapGallery.container = bassDiv;
+
+            // 缩放控件保持不变（左下角）
+            view.ui.move("zoom", "bottom-left");
+        });
+
+        view.catch(err => {
+            console.error("杭州地图加载失败:", err);
+            const note = document.getElementById("loadingMsg");
+            if (note) {
+                note.innerHTML = "⚠️ 地图资源可能需要登录访问，但仍可体验底图切换/图层管理。";
+                note.style.background = "#7a2e19";
+            }
+        });
+
+        window.addEventListener("resize", () => view?.resize());
+    });
+</script>
+</body>
+</html>

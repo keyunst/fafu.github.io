@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>中国自然灾害监测 · 地震与台风专题 | 应急预警地图</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: #1a2a32;
+        }
+
+        .map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        #viewDiv {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 顶部页眉（深色警示风格） */
+        .disaster-header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 30;
+            background: rgba(10, 20, 25, 0.85);
+            backdrop-filter: blur(16px);
+            border-radius: 60px;
+            padding: 0.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(220, 80, 40, 0.6);
+            pointer-events: auto;
+        }
+
+        .logo-area h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ffaa55, #ff5533);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-area p {
+            font-size: 0.65rem;
+            color: #ffcc99;
+            margin-top: 4px;
+            letter-spacing: 1px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .stats-badge {
+            display: flex;
+            gap: 12px;
+        }
+
+        .stat {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            padding: 5px 14px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #ffecb3;
+            border-left: 2px solid #ff6633;
+        }
+
+        /* 搜索框容器（在导航栏内部） */
+        .search-header-container {
+            min-width: 260px;
+        }
+        .esri-search {
+            border-radius: 48px !important;
+            background: rgba(0, 0, 0, 0.85) !important;
+            backdrop-filter: blur(12px);
+            border: 1px solid #ff8844 !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+            width: 100% !important;
+            margin: 0 !important;
+        }
+        .esri-search__input {
+            color: #ffffff !important;
+            font-size: 0.85rem;
+        }
+        .esri-search__input::placeholder {
+            color: #ffcc99 !important;
+        }
+        .esri-search__submit-button,
+        .esri-search__clear-button {
+            background: rgba(255, 136, 68, 0.3) !important;
+            border-radius: 40px !important;
+        }
+
+        /* 右下侧悬浮面板（无改动） */
+        .bottom-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            left: auto;
+            width: 340px;
+            max-height: 65%;
+            background: rgba(15, 25, 30, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 28px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(220, 100, 50, 0.5);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 20;
+            color: #fcf3da;
+        }
+
+        .bottom-panel::-webkit-scrollbar {
+            width: 4px;
+        }
+        .bottom-panel::-webkit-scrollbar-track {
+            background: rgba(200, 100, 50, 0.2);
+            border-radius: 10px;
+        }
+        .bottom-panel::-webkit-scrollbar-thumb {
+            background: rgba(220, 100, 50, 0.6);
+            border-radius: 10px;
+        }
+
+        .card-module {
+            background: rgba(0, 0, 0, 0.5);
+            margin: 16px 14px;
+            border-radius: 24px;
+            padding: 12px 0 16px 0;
+            backdrop-filter: blur(4px);
+        }
+
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 0 18px 10px 22px;
+            border-left: 4px solid #ff6633;
+            color: #fff0cf;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 1px;
+        }
+
+        .widget-wrapper {
+            padding: 0 12px;
+        }
+
+        .disaster-tags {
+            padding: 0 18px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 4px;
+        }
+        .tag {
+            background: rgba(220, 80, 40, 0.25);
+            border: 1px solid rgba(220, 100, 60, 0.7);
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #ffcf9a;
+        }
+
+        /* 微件通用深色风格 */
+        .esri-widget {
+            background: rgba(0, 0, 0, 0.75) !important;
+            border: 1px solid rgba(220, 100, 50, 0.5) !important;
+            border-radius: 20px !important;
+            backdrop-filter: blur(8px);
+            color: #f0e6d0 !important;
+        }
+        .esri-widget__heading {
+            color: #ffaa66 !important;
+        }
+        .esri-layer-list__item,
+        .esri-legend__service {
+            color: #fdf4df !important;
+        }
+        .esri-legend__layer-caption,
+        .esri-legend__layer-title {
+            color: #ffefcb !important;
+            font-weight: 600;
+        }
+        .esri-legend__symbol-label {
+            color: #fff2dc !important;
+            background: rgba(0,0,0,0.5);
+            border-radius: 12px;
+            padding: 2px 8px;
+        }
+
+        .esri-zoom {
+            margin-bottom: 12px !important;
+            background: rgba(0, 0, 0, 0.75) !important;
+            border-radius: 48px !important;
+            border: 1px solid #ff8844;
+        }
+        .esri-scale-bar {
+            background: rgba(0, 0, 0, 0.7) !important;
+            backdrop-filter: blur(8px);
+            border-radius: 28px;
+            padding: 4px 12px;
+            color: #ffecb3;
+            border: 1px solid rgba(220, 100, 50, 0.5);
+        }
+        .esri-attribution {
+            background: rgba(0, 0, 0, 0.6) !important;
+            border-radius: 20px;
+            font-size: 9px;
+            bottom: 8px !important;
+            right: 8px !important;
+        }
+
+        @media (max-width: 780px) {
+            .bottom-panel { width: 280px; right: 12px; bottom: 12px; max-height: 60%; }
+            .disaster-header { padding: 0.5rem 1rem; flex-direction: column; align-items: stretch; }
+            .header-right { justify-content: space-between; }
+            .search-header-container { min-width: auto; }
+            .logo-area h1 { font-size: 1rem; }
+        }
+
+        .loading-tip {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            color: #ffefcf;
+            padding: 5px 14px;
+            border-radius: 60px;
+            font-size: 11px;
+            z-index: 22;
+            pointer-events: none;
+        }
+        .alert-banner {
+            position: absolute;
+            top: 100px;
+            left: 20px;
+            background: rgba(200, 40, 20, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            color: #fff0cf;
+            font-weight: 500;
+            z-index: 25;
+            border-left: 3px solid #ffaa44;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<div class="map-container">
+    <div id="viewDiv"></div>
+</div>
+
+<!-- 顶部导航栏：搜索框内置在右侧，永不被遮挡 -->
+<div class="disaster-header">
+    <div class="logo-area">
+        <h1>⚠️ 中国自然灾害 · 地震与台风监测</h1>
+        <p>地震震中 | 台风路径 | 实时预警专题</p>
+    </div>
+    <div class="header-right">
+        <div class="stats-badge">
+            <div class="stat">🌋 地震灾害监测</div>
+            <div class="stat">🌀 台风路径追踪</div>
+            <div class="stat">📊 应急管理部数据</div>
+        </div>
+        <!-- 搜索框容器 -->
+        <div class="search-header-container" id="searchWidgetContainer"></div>
+    </div>
+</div>
+
+<div class="alert-banner">
+    📢 当前专题：地震活动 & 台风动态 — 数据源自权威发布
+</div>
+
+<!-- 右下侧面板 -->
+<div class="bottom-panel">
+    <div class="card-module">
+        <div class="card-title">
+            <span>🌪️ 主要灾害类型</span>
+            <span style="font-size: 10px;">2025年度</span>
+        </div>
+        <div class="disaster-tags">
+            <span class="tag">🌋 地震灾害</span>
+            <span class="tag">🌀 台风灾害</span>
+        </div>
+    </div>
+
+    <div class="card-module">
+        <div class="card-title">
+            <span>🗺️ 应急底图库</span>
+            <span style="font-size: 11px;">地形 · 影像 · 矢量</span>
+        </div>
+        <div class="widget-wrapper" id="basemapGalleryContainer"></div>
+    </div>
+
+    <div class="card-module">
+        <div class="card-title">
+            <span>📊 灾害专题图层</span>
+            <span style="font-size: 11px;">显隐切换</span>
+        </div>
+        <div class="widget-wrapper" id="layerListContainer"></div>
+    </div>
+
+    <div class="card-module">
+        <div class="card-title">
+            <span>🎨 灾情图例</span>
+        </div>
+        <div class="widget-wrapper" id="legendContainer"></div>
+    </div>
+
+    <div class="card-module" style="margin-bottom: 20px;">
+        <div class="card-title">🆘 应急助手</div>
+        <div style="padding: 8px 20px 12px 20px; font-size: 11px; line-height: 1.45; color: #f4e1b0;">
+            🔍 顶部导航栏右侧可直接搜索地震区域或台风影响城市<br>
+            🌍 图层数据包含历史地震震中、台风路径及强度<br>
+            📊 点击【灾害专题图层】查看地震分布/台风轨迹<br>
+            ⚠️ 数据来源：中国地震局、中央气象台、应急管理部
+        </div>
+    </div>
+</div>
+
+<div class="loading-tip" id="loadingMsg">🔄 加载地震与台风监测专题图...</div>
+
+<script src="https://js.arcgis.com/4.29/"></script>
+<script>
+    require([
+        "esri/WebMap",
+        "esri/views/MapView",
+        "esri/config",
+        "esri/widgets/ScaleBar",
+        "esri/widgets/Legend",
+        "esri/widgets/Search",
+        "esri/widgets/LayerList",
+        "esri/widgets/BasemapGallery"
+    ], function(WebMap, MapView, esriConfig, ScaleBar, Legend, Search, LayerList, BasemapGallery) {
+        
+        const portalUrl = "https://www.geosceneonline.cn/geoscene";
+        esriConfig.portalUrl = portalUrl;
+        const disasterWebmapId = "0de2058fa6734623b60a1a00ee07c4b0";
+        
+        const webmap = new WebMap({
+            portalItem: { id: disasterWebmapId }
+        });
+        
+        const view = new MapView({
+            container: "viewDiv",
+            map: webmap,
+            center: [108.0, 35.0],
+            zoom: 5,
+            constraints: { snapToZoom: false }
+        });
+        
+        view.when(() => {
+            const loadingDiv = document.getElementById("loadingMsg");
+            if (loadingDiv) loadingDiv.style.display = "none";
+            console.log("地震台风监测地图加载成功 | 搜索框已集成到顶部导航栏，永不被遮挡");
+            
+            const scaleBar = new ScaleBar({
+                view: view,
+                unit: "metric",
+                style: "ruler"
+            });
+            view.ui.add(scaleBar, "bottom-left");
+            
+            // 搜索微件：放入顶部导航栏右侧容器
+            const searchWidget = new Search({
+                view: view,
+                includeDefaultSources: true,
+                placeholder: "🔍 搜索地震区域、台风影响城市...",
+                autoNavigate: true,
+                locationEnabled: true
+            });
+            const searchContainer = document.getElementById("searchWidgetContainer");
+            if (searchContainer) {
+                searchWidget.container = searchContainer;
+            } else {
+                // 备用方案
+                view.ui.add(searchWidget, "top-right");
+            }
+            
+            // 图层列表
+            const layerList = new LayerList({
+                view: view,
+                visibilityAppearance: "checkbox",
+                listItemCreatedFunction: (event) => {
+                    if (event.item.layer.type === "group") event.item.opened = true;
+                }
+            });
+            const layerDiv = document.getElementById("layerListContainer");
+            if (layerDiv) layerList.container = layerDiv;
+            
+            // 图例
+            const legend = new Legend({
+                view: view,
+                style: "card",
+                respectLayerVisibility: true
+            });
+            const legendDiv = document.getElementById("legendContainer");
+            if (legendDiv) legend.container = legendDiv;
+            
+            // 底图库
+            const basemapGallery = new BasemapGallery({
+                view: view,
+                source: { portal: { url: esriConfig.portalUrl } }
+            });
+            const galleryDiv = document.getElementById("basemapGalleryContainer");
+            if (galleryDiv) basemapGallery.container = galleryDiv;
+            
+            // 缩放控件移至左下角
+            view.ui.move("zoom", "bottom-left");
+            view.ui.remove(scaleBar);
+            view.ui.add(scaleBar, "bottom-left");
+        });
+        
+        view.catch(err => {
+            console.error("地图加载失败:", err);
+            const msgDiv = document.getElementById("loadingMsg");
+            if (msgDiv) {
+                msgDiv.innerHTML = "⚠️ 地图资源可能需要登录验证，但底图库切换等功能仍可用。";
+                msgDiv.style.background = "#aa2e1e";
+            }
+        });
+        
+        window.addEventListener("resize", () => view?.resize());
+    });
+</script>
+</body>
+</html>

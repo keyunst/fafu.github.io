@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>八闽风华 · 福建5A级风景与行政区划全景图</title>
+    <!-- ArcGIS JS API 4.29 + 清新福建风格 -->
+    <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: #0f1e1c;
+        }
+
+        .fullscreen-map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        #viewDiv {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 顶部悬浮导航栏 */
+        .herald-banner {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            right: 24px;
+            z-index: 40;
+            background: rgba(20, 28, 26, 0.68);
+            backdrop-filter: blur(20px);
+            border-radius: 80px;
+            padding: 0.6rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(200, 170, 110, 0.45);
+            pointer-events: auto;
+        }
+
+        .brand {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .brand h1 {
+            font-size: 1.45rem;
+            font-weight: 700;
+            background: linear-gradient(120deg, #f9e0a0, #daa84a);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.3px;
+        }
+
+        .sub {
+            font-size: 0.7rem;
+            color: #cbcdb5;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px 12px;
+            border-radius: 40px;
+        }
+
+        .global-stats {
+            display: flex;
+            gap: 18px;
+        }
+
+        .pill-stat {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            padding: 4px 16px;
+            border-radius: 60px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #ffe3b3;
+            border-left: 2px solid #e6b653;
+        }
+
+        /* 搜索框容器 */
+        .search-outer {
+            margin-left: 20px;
+            min-width: 280px;
+        }
+        .esri-search {
+            border-radius: 48px !important;
+            background: rgba(0, 0, 0, 0.88) !important;
+            backdrop-filter: blur(12px);
+            border: 1.5px solid #f3bc5c !important;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3) !important;
+            width: 100% !important;
+        }
+        .esri-search__input {
+            color: #f7f3e2 !important;
+            font-size: 0.85rem;
+        }
+        .esri-search__input::placeholder {
+            color: #ecdbaa !important;
+        }
+        .esri-search__submit-button, .esri-search__clear-button {
+            background: rgba(230, 170, 70, 0.35) !important;
+            border-radius: 40px !important;
+        }
+
+        /* 左侧瀑布区 & 右侧瀑布区：底部向上收缩为比例尺和缩放控件留出空间 */
+        .left-waterfall {
+            position: absolute;
+            left: 24px;
+            top: 110px;
+            bottom: 70px;          /* 留出底部空间，避免与比例尺/缩放控件重叠 */
+            width: 300px;
+            background: rgba(12, 22, 20, 0.7);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            border: 1px solid rgba(230, 180, 100, 0.35);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 25;
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.3);
+            scrollbar-width: thin;
+        }
+
+        .left-waterfall::-webkit-scrollbar { width: 3px; }
+        .left-waterfall::-webkit-scrollbar-track { background: #2a3b36; border-radius: 10px; }
+        .left-waterfall::-webkit-scrollbar-thumb { background: #e6b85c; border-radius: 10px; }
+
+        .right-cluster {
+            position: absolute;
+            right: 24px;
+            top: 110px;
+            bottom: 70px;          /* 同样留出底部空间 */
+            width: 300px;
+            background: rgba(12, 22, 20, 0.7);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            border: 1px solid rgba(230, 180, 100, 0.35);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 25;
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .right-cluster::-webkit-scrollbar { width: 3px; }
+        .right-cluster::-webkit-scrollbar-track { background: #2a3b36; border-radius: 10px; }
+        .right-cluster::-webkit-scrollbar-thumb { background: #e6b85c; border-radius: 10px; }
+
+        .water-card {
+            background: rgba(0, 0, 0, 0.55);
+            margin: 16px 14px;
+            border-radius: 28px;
+            padding: 14px 0 16px 0;
+            backdrop-filter: blur(4px);
+            transition: all 0.2s ease;
+        }
+
+        .card-head {
+            padding: 0 18px 10px 20px;
+            border-left: 4px solid #f5bd6b;
+            font-weight: 700;
+            color: #ffefcf;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .heritage-tag {
+            background: rgba(230, 180, 80, 0.25);
+            border-radius: 30px;
+            font-size: 0.7rem;
+            padding: 3px 10px;
+            color: #ffe2aa;
+        }
+
+        .water-list {
+            padding: 0 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .heritage-item {
+            background: rgba(30, 40, 35, 0.6);
+            border-radius: 20px;
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            color: #fbefcf;
+            transition: 0.1s;
+        }
+
+        .heritage-item strong {
+            color: #ffcf7a;
+        }
+
+        .district-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .district-badge {
+            background: rgba(210, 170, 70, 0.2);
+            border: 0.5px solid rgba(210, 170, 70, 0.6);
+            border-radius: 30px;
+            padding: 4px 12px;
+            font-size: 0.65rem;
+            font-weight: 500;
+            color: #ece3ce;
+        }
+
+        .widget-container {
+            padding: 0 12px;
+        }
+
+        /* 通用微件风格 */
+        .esri-widget {
+            background: rgba(0, 0, 0, 0.65) !important;
+            border: 1px solid rgba(210, 155, 65, 0.6) !important;
+            border-radius: 20px !important;
+            color: #f5efda !important;
+        }
+
+        .esri-legend__layer-title, .esri-legend__service {
+            color: #ffdc9a !important;
+        }
+
+        .esri-legend__symbol-label {
+            background: rgba(0,0,0,0.65) !important;
+            border-radius: 14px;
+            padding: 0 6px;
+        }
+
+        /* 缩放控件保持在左下角，比例尺移到右下角后两者互不干扰 */
+        .esri-zoom {
+            margin-bottom: 12px !important;
+            background: rgba(0, 0, 0, 0.7) !important;
+            border-radius: 48px !important;
+            border: 1px solid #f3bc5c;
+        }
+        .esri-scale-bar {
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 4px 12px;
+            color: #ffeac2;
+        }
+
+        /* 右下角属性信息与比例尺不冲突 */
+        .esri-attribution {
+            background: rgba(0, 0, 0, 0.6) !important;
+            border-radius: 20px;
+            font-size: 9px;
+            bottom: 8px !important;
+            right: 8px !important;
+        }
+
+        /* 移动端响应 */
+        @media (max-width: 880px) {
+            .left-waterfall, .right-cluster { width: 260px; }
+            .herald-banner { flex-wrap: wrap; gap: 12px; padding: 0.8rem 1.2rem; border-radius: 48px; }
+            .brand h1 { font-size: 1.1rem; }
+        }
+
+        @media (max-width: 720px) {
+            .left-waterfall, .right-cluster { display: none; }
+            .search-outer { min-width: 200px; }
+        }
+
+        .loading-twist {
+            position: absolute;
+            bottom: 20px;
+            left: 24px;
+            background: rgba(0,0,0,0.65);
+            backdrop-filter: blur(12px);
+            padding: 5px 16px;
+            border-radius: 60px;
+            font-size: 11px;
+            color: #ffefcf;
+            z-index: 28;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<div class="fullscreen-map">
+    <div id="viewDiv"></div>
+</div>
+
+<!-- 顶部导航栏 -->
+<div class="herald-banner">
+    <div class="brand">
+        <h1>🌊 八闽山河 · 5A级景区 x 县级行政区全景</h1>
+        <span class="sub">12处国家5A级景区 · 84个县级行政单元</span>
+    </div>
+    <div class="search-outer" id="searchWidgetContainer"></div>
+    <div class="global-stats">
+        <span class="pill-stat">🏔️ 武夷山 双遗</span>
+        <span class="pill-stat">🏯 土楼 · 鼓浪屿 · 泉州世遗</span>
+        <span class="pill-stat">🛖 三坊七巷 · 古田</span>
+    </div>
+</div>
+
+<!-- 左侧瀑布区 -->
+<div class="left-waterfall">
+    <div class="water-card">
+        <div class="card-head">
+            <span>🏆 福建 · 世界遗产名录</span>
+            <span class="heritage-tag">5处闪耀八闽</span>
+        </div>
+        <div class="water-list">
+            <div class="heritage-item"><strong>🧡 武夷山</strong> (1999) — 文化与自然双重遗产</div>
+            <div class="heritage-item"><strong>💛 福建土楼</strong> (2008) — 客家建筑史诗</div>
+            <div class="heritage-item"><strong>🤎 泰宁丹霞</strong> (2010) — 中国丹霞 青年期典范</div>
+            <div class="heritage-item"><strong>🤍 鼓浪屿：历史国际社区</strong> (2017) — 万国建筑博览</div>
+            <div class="heritage-item"><strong>💙 泉州：宋元中国的世界海洋商贸中心</strong> (2021) — 海丝起点</div>
+        </div>
+    </div>
+
+    <div class="water-card">
+        <div class="card-head">
+            <span>⭐ 5A级景区菁华榜</span>
+            <span class="heritage-tag">覆盖全省九地市</span>
+        </div>
+        <div class="water-list">
+            <div class="heritage-item">🎵 厦门鼓浪屿 · 2007年5A</div>
+            <div class="heritage-item">⛰️ 武夷山风景名胜区 · 2007年5A</div>
+            <div class="heritage-item">🏮 福建土楼（永定 · 南靖） · 2011年5A</div>
+            <div class="heritage-item">🌄 泰宁风景旅游区 · 2011年5A</div>
+            <div class="heritage-item">💧 白水洋·鸳鸯溪 · 2012年5A</div>
+            <div class="heritage-item">🏞️ 清源山景区 · 2012年5A</div>
+            <div class="heritage-item">⛩️ 太姥山风景区 · 2013年5A</div>
+            <div class="heritage-item">📜 福州三坊七巷 · 2015年5A</div>
+            <div class="heritage-item">📍 古田旅游区 · 2015年5A</div>
+            <div class="heritage-item">🙏 湄洲岛妈祖文化旅游区 · 2020年5A</div>
+            <div class="heritage-item">🌿 厦门园林植物园 · 2024年2月</div>
+            <div class="heritage-item">⛰️ 连城冠豸山 · 2024年12月</div>
+        </div>
+        <div style="padding: 14px 18px 6px;">
+            <div class="feature-legend" style="background: rgba(0,0,0,0.4); border-radius: 18px; padding: 6px 12px;">✨ 最新数据：2026年福建共计12家国家5A级旅游景区，龙岩市拥有3家5A景区（冠豸山、古田、土楼），数量全省第一。</div>
+        </div>
+    </div>
+</div>
+
+<!-- 右侧瀑布区 -->
+<div class="right-cluster">
+    <div class="water-card">
+        <div class="card-head">
+            <span>📌 八闽 · 县级行政区划</span>
+            <span class="heritage-tag">84个行政区·山海相拥</span>
+        </div>
+        <div class="water-list">
+            <div style="font-size: 0.65rem; color: #ecd9ac; margin-bottom: 6px;">福州·厦门·泉州·漳州·龙岩·三明·南平·宁德·莆田</div>
+            <div class="district-cloud" id="countyDistrictContainer"></div>
+        </div>
+    </div>
+
+    <div class="water-card">
+        <div class="card-head">
+            <span>🗺️ 底图库 · 一键风格</span>
+        </div>
+        <div class="widget-container" id="basemapGalleryContainer"></div>
+    </div>
+
+    <div class="water-card">
+        <div class="card-head">
+            <span>📂 文旅专题图层</span>
+            <span class="heritage-tag">5A景区 · 行政区界</span>
+        </div>
+        <div class="widget-container" id="layerListContainer"></div>
+    </div>
+
+    <div class="water-card">
+        <div class="card-head">
+            <span>🎨 图例索引</span>
+        </div>
+        <div class="widget-container" id="legendContainer"></div>
+    </div>
+
+    <div class="water-card" style="margin-bottom: 20px;">
+        <div class="card-head">📖 旅行小典</div>
+        <div style="padding: 4px 20px 12px; font-size: 11px; line-height: 1.45; color: #ddcfaa;">
+            🔍 顶部搜索框查找任意5A景区、县级地名（如“武夷山”、“鼓浪屿”、“永定区”）<br>
+            🚩 武夷山、泰宁丹霞、土楼勾勒福建世遗走廊。<br>
+            🚄 福厦高铁串联省会福州与滨海厦门，便捷通达各大5A景区。<br>
+            🌸 推荐“山海画廊”游线：厦门鼓浪屿 → 泉州清源山 → 龙岩土楼 → 武夷山国家公园。
+        </div>
+    </div>
+</div>
+
+<div class="loading-twist" id="loadingMsg">🍃 载入福建5A·行政区地图引擎...</div>
+
+<script src="https://js.arcgis.com/4.29/"></script>
+<script>
+    require([
+        "esri/WebMap",
+        "esri/views/MapView",
+        "esri/config",
+        "esri/widgets/ScaleBar",
+        "esri/widgets/Legend",
+        "esri/widgets/Search",
+        "esri/widgets/LayerList",
+        "esri/widgets/BasemapGallery"
+    ], function(WebMap, MapView, esriConfig, ScaleBar, Legend, Search, LayerList, BasemapGallery) {
+
+        const portalUrl = "https://www.geosceneonline.cn/geoscene";
+        esriConfig.portalUrl = portalUrl;
+        const fujianWebmapId = "82dee77f063345a29d1143e0c1978dff";
+        
+        const webmap = new WebMap({
+            portalItem: { id: fujianWebmapId }
+        });
+        
+        const view = new MapView({
+            container: "viewDiv",
+            map: webmap,
+            center: [118.18, 25.88],
+            zoom: 7.8,
+            constraints: { snapToZoom: false }
+        });
+        
+        view.when(() => {
+            console.log("福建省5A景区·县级行政区划地图 | 比例尺已移至右下角，面板底部留出空间");
+            const loadingDiv = document.getElementById("loadingMsg");
+            if (loadingDiv) loadingDiv.style.display = "none";
+            
+            // ★ 比例尺放到右下角，避免与左侧面板或缩放控件重叠
+            const scaleBar = new ScaleBar({
+                view: view,
+                unit: "metric",
+                style: "ruler"
+            });
+            view.ui.add(scaleBar, "bottom-right");
+            
+            // 搜索微件放入顶部容器
+            const searchWidget = new Search({
+                view: view,
+                includeDefaultSources: true,
+                placeholder: "🔍 搜索5A景区/县级名称 | 如：泰宁、土楼、鼓浪屿、武夷山...",
+                autoNavigate: true,
+                locationEnabled: true
+            });
+            const searchContainer = document.getElementById("searchWidgetContainer");
+            if (searchContainer) {
+                searchWidget.container = searchContainer;
+            } else {
+                view.ui.add(searchWidget, "top-right");
+            }
+            
+            // 图层列表
+            const layerList = new LayerList({
+                view: view,
+                visibilityAppearance: "checkbox",
+                listItemCreatedFunction: (event) => {
+                    if (event.item.layer.type === "group") event.item.opened = true;
+                }
+            });
+            const layerDiv = document.getElementById("layerListContainer");
+            if (layerDiv) layerList.container = layerDiv;
+            
+            // 图例
+            const legend = new Legend({
+                view: view,
+                style: "card",
+                respectLayerVisibility: true
+            });
+            const legendDiv = document.getElementById("legendContainer");
+            if (legendDiv) legend.container = legendDiv;
+            
+            // 底图库
+            const basemapGallery = new BasemapGallery({
+                view: view,
+                source: { portal: { url: esriConfig.portalUrl } }
+            });
+            const galleryDiv = document.getElementById("basemapGalleryContainer");
+            if (galleryDiv) basemapGallery.container = galleryDiv;
+            
+            // 缩放控件保持在左下角（未移动），比例尺在右下角，互不干扰
+            // 无需额外移动 zoom，它默认在左下角
+            
+            // 动态生成县级行政区标签
+            const countyMap = [
+                "鼓楼区", "仓山区", "晋安区", "长乐区", "福清市", "闽侯县", "连江县", "罗源县", "闽清县", "永泰县",
+                "思明区", "湖里区", "集美区", "海沧区", "同安区", "翔安区",
+                "鲤城区", "丰泽区", "洛江区", "泉港区", "晋江市", "石狮市", "南安市", "惠安县", "安溪县", "永春县", "德化县",
+                "芗城区", "龙文区", "龙海区", "长泰区", "漳浦县", "云霄县", "东山县", "诏安县", "南靖县", "平和县", "华安县",
+                "新罗区", "永定区", "漳平市", "长汀县", "上杭县", "武平县", "连城县",
+                "梅列区", "三元区", "永安市", "明溪县", "清流县", "宁化县", "大田县", "尤溪县", "沙县区", "将乐县", "泰宁县", "建宁县",
+                "延平区", "建阳区", "邵武市", "武夷山市", "建瓯市", "顺昌县", "浦城县", "光泽县", "松溪县", "政和县",
+                "蕉城区", "福安市", "福鼎市", "霞浦县", "古田县", "屏南县", "周宁县", "寿宁县", "柘荣县",
+                "城厢区", "涵江区", "荔城区", "秀屿区", "仙游县"
+            ];
+            const container = document.getElementById("countyDistrictContainer");
+            if (container) {
+                container.innerHTML = countyMap.slice(0, 28).map(cnt => `<span class="district-badge">${cnt}</span>`).join('');
+                const moreSpan = document.createElement("span");
+                moreSpan.className = "district-badge";
+                moreSpan.innerText = `+${countyMap.length-28}个县市区`;
+                container.appendChild(moreSpan);
+                moreSpan.style.background = "#cb9e52";
+                moreSpan.style.color = "#2a2418";
+            }
+        });
+        
+        view.catch(err => {
+            console.warn("WebMap 加载需要权限或服务异常:", err);
+            const msgDiv = document.getElementById("loadingMsg");
+            if (msgDiv) {
+                msgDiv.innerHTML = "⚠️ 地图资源访问限制或服务需登录，但底图库与图层控件仍可使用。";
+                msgDiv.style.background = "#7f4f2a";
+            }
+        });
+        window.addEventListener("resize", () => view?.resize());
+    });
+</script>
+</body>
+</html>

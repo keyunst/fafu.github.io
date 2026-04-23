@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>文旅中国 · 铁路风景 | 智游神州</title>
+    <!-- ArcGIS JS API 4.29 -->
+    <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Inter', 'Poppins', system-ui, -apple-system, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: #f0f2f5;
+        }
+
+        .map-fullscreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        #viewDiv {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 页眉区域 */
+        .app-header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 30;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            border-radius: 60px;
+            padding: 0.6rem 1.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 25px -8px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            pointer-events: auto;
+        }
+
+        .logo h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #c17b2e, #8b5a2b);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo p {
+            font-size: 0.7rem;
+            color: #5a6e7c;
+            margin-top: 2px;
+        }
+
+        .badge-group {
+            display: flex;
+            gap: 16px;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 0.3rem 1rem;
+            border-radius: 40px;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            color: #2c5f2d;
+            font-weight: 500;
+        }
+
+        /* 右侧悬浮面板 (底图库/图层/图例) */
+        .right-dashboard {
+            position: absolute;
+            right: 20px;
+            top: 100px;
+            bottom: 20px;
+            width: 320px;
+            background: rgba(30, 30, 35, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 20;
+            color: #f0f0f0;
+        }
+
+        .right-dashboard::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .right-dashboard::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .right-dashboard::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        .dashboard-section {
+            background: rgba(0, 0, 0, 0.5);
+            margin: 16px 14px;
+            border-radius: 24px;
+            padding: 12px 0 16px 0;
+            backdrop-filter: blur(4px);
+        }
+
+        .section-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 0 16px 8px 18px;
+            border-left: 3px solid #f4a261;
+            color: #ffedd5;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.3px;
+        }
+
+        .widget-container {
+            padding: 4px 12px;
+        }
+
+        /* ========= 全局微件深色风格 ========= */
+        .esri-widget {
+            background: rgba(20, 20, 25, 0.85) !important;
+            border: none !important;
+            border-radius: 20px !important;
+            backdrop-filter: blur(8px);
+        }
+
+        .esri-widget__heading {
+            color: #ffd966 !important;
+        }
+
+        .esri-layer-list__item,
+        .esri-legend__service {
+            color: #f8f9fa !important;
+        }
+
+        /* ========= 图例文字极致增强 ========= */
+        .esri-legend__layer-caption,
+        .esri-legend__layer-table,
+        .esri-legend__label,
+        .esri-legend__symbol-label,
+        .esri-legend__ramp-label,
+        .esri-legend__service-label {
+            color: #fff8e7 !important;
+            font-weight: 600 !important;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
+            background: rgba(0,0,0,0.3) !important;
+            padding: 2px 6px !important;
+            border-radius: 16px !important;
+            display: inline-block;
+        }
+        .esri-legend__layer-title {
+            color: #ffda99 !important;
+            font-weight: 700 !important;
+            text-shadow: 0 1px 2px black;
+            font-size: 0.9rem;
+        }
+        .esri-legend__card {
+            background: transparent !important;
+        }
+        .esri-legend__symbol-label {
+            background: rgba(0,0,0,0.6) !important;
+            margin-left: 5px;
+        }
+
+        /* ========= ★ 搜索框终极修复：完全自定义位置，确保可见 ========= */
+        /* 覆盖 ArcGIS 默认的 .esri-search 样式，强制绝对定位在左上角 */
+        .esri-search {
+            position: absolute !important;
+            top: 90px !important;      /* 页眉下方 */
+            left: 20px !important;
+            right: auto !important;
+            width: 320px !important;
+            border-radius: 48px !important;
+            background: rgba(0, 0, 0, 0.92) !important;
+            backdrop-filter: blur(12px);
+            border: 2px solid #ffcd7e !important;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,200,100,0.6) !important;
+            z-index: 200 !important;   /* 远高于其他元素 */
+            transition: width 0.2s ease;
+        }
+        .esri-search--expanded {
+            width: 380px !important;
+        }
+        /* 搜索框内部文字样式 */
+        .esri-search__input {
+            color: #ffffff !important;
+            background: transparent !important;
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 12px 16px !important;
+        }
+        .esri-search__input::placeholder {
+            color: #ffe1a0 !important;
+            opacity: 1;
+            font-weight: 400;
+        }
+        .esri-search__submit-button,
+        .esri-search__clear-button {
+            background: rgba(255,215,120,0.25) !important;
+            border-radius: 40px !important;
+            color: #ffefb0 !important;
+            margin: 4px;
+        }
+        .esri-search__submit-button:hover,
+        .esri-search__clear-button:hover {
+            background: rgba(255,200,80,0.7) !important;
+            color: white;
+        }
+        /* 搜索建议下拉框 */
+        .esri-search__suggestions-menu {
+            background: rgba(0,0,0,0.95) !important;
+            backdrop-filter: blur(20px);
+            border-radius: 24px !important;
+            border: 1px solid #f4a261;
+            margin-top: 8px;
+        }
+        .esri-search__suggestion-item {
+            color: #fff0cf !important;
+            padding: 8px 16px;
+        }
+        /* 确保左上角其他控件不干扰 */
+        .esri-attribution {
+            background: rgba(0, 0, 0, 0.6) !important;
+            border-radius: 20px !important;
+            padding: 2px 12px !important;
+            font-size: 9px !important;
+            bottom: 8px !important;
+            right: 8px !important;
+            color: #ddd;
+        }
+
+        /* 缩放控件保持在左下角，无冲突 */
+        .esri-zoom {
+            margin-bottom: 8px !important;
+            background: rgba(0, 0, 0, 0.75) !important;
+            border-radius: 48px !important;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,215,140,0.6);
+        }
+        .esri-zoom .esri-widget--button {
+            background: rgba(25, 25, 35, 0.9) !important;
+            color: #ffefcf !important;
+            border-radius: 40px !important;
+        }
+        .esri-scale-bar {
+            background: rgba(0, 0, 0, 0.7) !important;
+            backdrop-filter: blur(8px);
+            border-radius: 28px !important;
+            padding: 4px 12px;
+            color: #ffefcf;
+            font-weight: 500;
+            border: 1px solid rgba(255,215,140,0.4);
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 780px) {
+            .right-dashboard {
+                width: 270px;
+                top: 90px;
+            }
+            .esri-search {
+                top: 80px !important;
+                left: 12px !important;
+                width: 260px !important;
+            }
+            .esri-search--expanded {
+                width: 300px !important;
+            }
+            .app-header {
+                left: 12px;
+                right: 12px;
+                padding: 0.4rem 1rem;
+            }
+            .logo h1 {
+                font-size: 1rem;
+            }
+        }
+
+        .loading-toast {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            color: #ffecd6;
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 12px;
+            z-index: 30;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<div class="map-fullscreen">
+    <div id="viewDiv"></div>
+</div>
+
+<!-- 页眉 -->
+<div class="app-header">
+    <div class="logo">
+        <h1>🚆 文旅中国 · 铁路风景</h1>
+        <p>高铁动脉串联世界遗产 | 畅游神州美景</p>
+    </div>
+    <div class="badge-group">
+        <div class="badge">🏯 56项世界遗产</div>
+        <div class="badge">🚄 4.8万公里高铁</div>
+    </div>
+</div>
+
+<!-- 右侧面板（底图库 / 图层列表 / 图例） -->
+<div class="right-dashboard">
+    <div class="dashboard-section">
+        <div class="section-title">
+            <span>🗺️ 底图库</span>
+            <span style="font-size: 11px;">一键切换</span>
+        </div>
+        <div class="widget-container" id="basemapGalleryContainer"></div>
+    </div>
+    <div class="dashboard-section">
+        <div class="section-title">
+            <span>📂 铁路 & 景点图层</span>
+            <span style="font-size: 11px;">控制显隐</span>
+        </div>
+        <div class="widget-container" id="layerListContainer"></div>
+    </div>
+    <div class="dashboard-section">
+        <div class="section-title">
+            <span>🎨 图例说明</span>
+        </div>
+        <div class="widget-container" id="legendContainer"></div>
+    </div>
+    <div class="dashboard-section" style="margin-bottom: 20px;">
+        <div class="section-title">📍 旅途助手</div>
+        <div style="padding: 8px 18px 12px 18px; font-size: 11px; line-height: 1.4; color: #ddd;">
+            🔍 左上角醒目的搜索框<br>
+            📏 左下角比例尺 + 缩放控件<br>
+            🧭 点击图层列表切换专题数据<br>
+            🖼️ 右侧底图库支持多源底图一键切换
+        </div>
+    </div>
+</div>
+
+<div class="loading-toast" id="loadingMsg">🔄 加载旅游铁路专题地图中...</div>
+
+<script src="https://js.arcgis.com/4.29/"></script>
+<script>
+    require([
+        "esri/WebMap",
+        "esri/views/MapView",
+        "esri/config",
+        "esri/widgets/ScaleBar",
+        "esri/widgets/Legend",
+        "esri/widgets/Search",
+        "esri/widgets/LayerList",
+        "esri/widgets/BasemapGallery"
+    ], function(WebMap, MapView, esriConfig, ScaleBar, Legend, Search, LayerList, BasemapGallery) {
+
+        // 私有门户配置
+        const portalUrl = "https://www.geosceneonline.cn/geoscene";
+        esriConfig.portalUrl = portalUrl;
+        console.log("私有门户已配置:", portalUrl);
+
+        const webmapId = "dcb0ed88dada4ca1ba752fe87bd54115";
+
+        const webmap = new WebMap({
+            portalItem: { id: webmapId }
+        });
+
+        const view = new MapView({
+            container: "viewDiv",
+            map: webmap,
+            center: [108.94, 34.34],
+            zoom: 5,
+            constraints: { snapToZoom: false }
+        });
+
+        view.when(() => {
+            const msg = document.getElementById("loadingMsg");
+            if (msg) msg.style.display = "none";
+            console.log("地图加载成功 | 搜索框已强制放置在左上角 (top:90px, left:20px)");
+
+            // 比例尺
+            const scaleBar = new ScaleBar({
+                view: view,
+                unit: "metric",
+                style: "ruler"
+            });
+            view.ui.add(scaleBar, "bottom-left");
+
+            // 搜索微件 —— 添加到地图视图，但通过 CSS 已经强制其位置在左上角
+            const searchWidget = new Search({
+                view: view,
+                includeDefaultSources: true,
+                placeholder: "🔍 搜索景点、高铁站或城市...",
+                autoNavigate: true,
+                locationEnabled: true
+            });
+            // 添加到视图，但不依赖默认位置 (因为 CSS 会覆盖)
+            view.ui.add(searchWidget, "manual");
+            // 手动确保搜索框 DOM 已追加，并再次强化样式（以防 ArcGIS 内部覆盖）
+            setTimeout(() => {
+                const searchNode = document.querySelector(".esri-search");
+                if (searchNode) {
+                    searchNode.style.position = "absolute";
+                    searchNode.style.top = "90px";
+                    searchNode.style.left = "20px";
+                    searchNode.style.right = "auto";
+                    searchNode.style.bottom = "auto";
+                    searchNode.style.zIndex = "200";
+                    searchNode.style.width = "320px";
+                    searchNode.style.background = "rgba(0, 0, 0, 0.92)";
+                    searchNode.style.border = "2px solid #ffcd7e";
+                    searchNode.style.boxShadow = "0 6px 20px rgba(0,0,0,0.4)";
+                    console.log("搜索框已强制重新定位");
+                }
+            }, 100);
+
+            // 图层列表
+            const layerList = new LayerList({
+                view: view,
+                visibilityAppearance: "checkbox",
+                listItemCreatedFunction: (event) => {
+                    if (event.item.layer.type === "group") event.item.opened = true;
+                }
+            });
+            const layerDiv = document.getElementById("layerListContainer");
+            if (layerDiv) layerList.container = layerDiv;
+
+            // 图例
+            const legend = new Legend({
+                view: view,
+                style: "card",
+                respectLayerVisibility: true
+            });
+            const legendDiv = document.getElementById("legendContainer");
+            if (legendDiv) legend.container = legendDiv;
+
+            // 底图库
+            const basemapGallery = new BasemapGallery({
+                view: view,
+                source: { portal: { url: esriConfig.portalUrl } }
+            });
+            const galleryDiv = document.getElementById("basemapGalleryContainer");
+            if (galleryDiv) basemapGallery.container = galleryDiv;
+
+            // 缩放控件移至左下角
+            view.ui.move("zoom", "bottom-left");
+            // 调整比例尺顺序
+            view.ui.remove(scaleBar);
+            view.ui.add(scaleBar, "bottom-left");
+        });
+
+        view.catch(err => {
+            console.error("地图服务异常:", err);
+            const msgDiv = document.getElementById("loadingMsg");
+            if (msgDiv) {
+                msgDiv.innerHTML = "⚠️ 地图服务加载失败，请检查网络。但底图库切换等功能仍可使用。";
+                msgDiv.style.background = "#b91c1c";
+                msgDiv.style.color = "#fff0e0";
+            }
+        });
+
+        window.addEventListener("resize", () => view?.resize());
+    });
+</script>
+</body>
+</html>
