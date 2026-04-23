@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>学府福州 · 高校分布全景图 | 智绘榕城书香</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: #eef3f7;
+        }
+
+        .fullscreen-map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        #viewDiv {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 顶部导航栏（学府蓝，清爽现代） */
+        .academy-header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 40;
+            background: rgba(25, 55, 85, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 60px;
+            padding: 0.5rem 1.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(100, 160, 220, 0.5);
+            pointer-events: auto;
+        }
+
+        .brand-area {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .brand-area h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ffffff, #b8d8ff);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.2px;
+        }
+
+        .stat-chip {
+            font-size: 0.7rem;
+            color: #d4ecff;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 4px 14px;
+            border-radius: 40px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .quick-stats {
+            display: flex;
+            gap: 12px;
+        }
+
+        .stat-pill {
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(4px);
+            padding: 5px 14px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #eef5ff;
+            border-left: 2px solid #5ca0e0;
+        }
+
+        /* 搜索框容器（右上角） */
+        .search-wrapper {
+            min-width: 260px;
+        }
+        .esri-search {
+            border-radius: 48px !important;
+            background: rgba(0, 0, 0, 0.82) !important;
+            backdrop-filter: blur(12px);
+            border: 1px solid #6aaee0 !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+            width: 100% !important;
+        }
+        .esri-search__input {
+            color: #ffffff !important;
+            font-size: 0.85rem;
+        }
+        .esri-search__input::placeholder {
+            color: #bddbff !important;
+        }
+        .esri-search__submit-button,
+        .esri-search__clear-button {
+            background: rgba(90, 160, 230, 0.3) !important;
+            border-radius: 40px !important;
+        }
+
+        /* 右侧悬浮面板（高校信息聚合） */
+        .right-academy-panel {
+            position: absolute;
+            right: 20px;
+            top: 100px;
+            bottom: 70px;
+            width: 330px;
+            background: rgba(250, 252, 255, 0.92);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(80, 140, 200, 0.35);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 25;
+            color: #1e2f3f;
+        }
+
+        .right-academy-panel::-webkit-scrollbar {
+            width: 4px;
+        }
+        .right-academy-panel::-webkit-scrollbar-track {
+            background: #e0ecf5;
+            border-radius: 10px;
+        }
+        .right-academy-panel::-webkit-scrollbar-thumb {
+            background: #5a90c0;
+            border-radius: 10px;
+        }
+
+        .info-card {
+            background: rgba(25, 60, 95, 0.06);
+            margin: 14px 14px;
+            border-radius: 26px;
+            padding: 14px 0 16px 0;
+            backdrop-filter: blur(4px);
+            border: 0.5px solid rgba(70, 130, 190, 0.2);
+        }
+
+        .card-heading {
+            font-size: 0.9rem;
+            font-weight: 700;
+            padding: 0 18px 10px 20px;
+            border-left: 4px solid #3a86c8;
+            color: #1a4a78;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .widget-area {
+            padding: 0 12px;
+        }
+
+        .university-list {
+            padding: 0 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .uni-badge {
+            background: rgba(60, 120, 180, 0.12);
+            border: 0.5px solid rgba(60, 120, 180, 0.45);
+            border-radius: 40px;
+            padding: 5px 16px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #1f6390;
+            transition: 0.1s;
+        }
+        .uni-badge:hover {
+            background: rgba(60, 120, 180, 0.3);
+        }
+
+        .culture-section {
+            background: linear-gradient(135deg, rgba(70, 140, 210, 0.08), rgba(50, 110, 170, 0.05));
+            border-radius: 24px;
+            margin: 8px 16px;
+            padding: 10px 12px;
+        }
+        .uni-motto {
+            font-size: 0.7rem;
+            color: #3a6580;
+            border-left: 2px solid #6aacd0;
+            padding-left: 10px;
+            margin: 6px 0;
+        }
+
+        .esri-widget {
+            background: rgba(255, 255, 255, 0.92) !important;
+            border: 1px solid rgba(80, 130, 180, 0.4) !important;
+            border-radius: 20px !important;
+            color: #1a3f5c !important;
+        }
+        .esri-widget__heading {
+            color: #2a6288 !important;
+        }
+        .esri-layer-list__item,
+        .esri-legend__service {
+            color: #2a4f6e !important;
+        }
+
+        .esri-zoom {
+            margin-bottom: 12px !important;
+            background: rgba(25, 55, 85, 0.8) !important;
+            border-radius: 48px !important;
+            border: 1px solid #6aaee0;
+        }
+        .esri-scale-bar {
+            background: rgba(25, 55, 85, 0.75) !important;
+            backdrop-filter: blur(8px);
+            border-radius: 28px;
+            padding: 4px 12px;
+            color: #f0f5fa;
+            border: 1px solid #7ab4e6;
+        }
+        .esri-attribution {
+            background: rgba(25, 55, 85, 0.65) !important;
+            border-radius: 20px;
+            font-size: 8px;
+            bottom: 8px !important;
+            right: 8px !important;
+        }
+
+        @media (max-width: 780px) {
+            .right-academy-panel { width: 280px; right: 12px; top: 90px; bottom: 60px; }
+            .academy-header { padding: 0.5rem 1rem; flex-wrap: wrap; gap: 10px; }
+            .header-right { flex-wrap: wrap; }
+            .search-wrapper { min-width: 220px; }
+        }
+
+        .loading-toast {
+            position: absolute;
+            bottom: 20px;
+            left: 24px;
+            background: rgba(25, 55, 85, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 6px 18px;
+            border-radius: 60px;
+            font-size: 11px;
+            color: #eef3fc;
+            z-index: 28;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<div class="fullscreen-map">
+    <div id="viewDiv"></div>
+</div>
+
+<!-- 顶部导航栏：品牌 + 右侧搜索框 -->
+<div class="academy-header">
+    <div class="brand-area">
+        <h1>📖 学府福州 · 高校分布全景</h1>
+        <span class="stat-chip">35 所高等学校 | 19 所本科 · 16 所专科</span>
+    </div>
+    <div class="header-right">
+        <div class="quick-stats">
+            <span class="stat-pill">🎓 211工程 · 福州大学</span>
+            <span class="stat-pill">📚 8 所公办本科</span>
+            <span class="stat-pill">🌊 闽江学府集群</span>
+        </div>
+        <div class="search-wrapper" id="searchWidgetContainer"></div>
+    </div>
+</div>
+
+<!-- 右侧面板 -->
+<div class="right-academy-panel">
+    <div class="info-card">
+        <div class="card-heading">
+            <span>🏛️ 福州高校 · 全名录</span>
+            <span style="font-size: 10px;">35 所 · 省属公/民办</span>
+        </div>
+        <div class="university-list" id="universityListContainer"></div>
+        <div style="padding: 8px 18px 4px; font-size: 0.6rem; color: #4f7ea0;">
+            📍 数据来源：教育部2025年公布高校名单
+        </div>
+    </div>
+
+    <div class="info-card">
+        <div class="card-heading">
+            <span>🗺️ 底图库 · 切换风格</span>
+        </div>
+        <div class="widget-area" id="basemapGalleryContainer"></div>
+    </div>
+
+    <div class="info-card">
+        <div class="card-heading">
+            <span>📂 专题图层</span>
+            <span style="font-size: 10px;">高校分布 / 交通 / 水系</span>
+        </div>
+        <div class="widget-area" id="layerListContainer"></div>
+    </div>
+
+    <div class="info-card">
+        <div class="card-heading">
+            <span>🎨 图例索引</span>
+        </div>
+        <div class="widget-area" id="legendContainer"></div>
+    </div>
+
+    <div class="info-card" style="margin-bottom: 18px;">
+        <div class="card-heading">
+            <span>📜 八闽学府 · 校训诗咏</span>
+        </div>
+        <div class="culture-section">
+            <div class="uni-motto">🏫 福州大学：「明德至诚  博学远志」</div>
+            <div class="uni-motto">🌿 福建师范大学：「知明行笃  立诚致广」</div>
+            <div class="uni-motto">🌾 福建农林大学：「明德  诚智  博学  创新」</div>
+            <div class="uni-motto">⚕️ 福建医科大学：「勤奋  严谨  求实  创新」</div>
+            <div class="uni-motto" style="border-left-color: #e6b85c; margin-top: 8px;">🎵 咏·福州大学 — “榕树香，花茶香，有福之州书最香。明德至诚，大写的人儿在实现理想。”</div>
+        </div>
+    </div>
+</div>
+
+<div class="loading-toast" id="loadingMsg">📡 加载福州高校分布图 · 学府蓝翼</div>
+
+<script src="https://js.arcgis.com/4.29/"></script>
+<script>
+    require([
+        "esri/WebMap",
+        "esri/views/MapView",
+        "esri/config",
+        "esri/widgets/ScaleBar",
+        "esri/widgets/Legend",
+        "esri/widgets/Search",
+        "esri/widgets/LayerList",
+        "esri/widgets/BasemapGallery"
+    ], function(WebMap, MapView, esriConfig, ScaleBar, Legend, Search, LayerList, BasemapGallery) {
+
+        const portalUrl = "https://www.geosceneonline.cn/geoscene";
+        esriConfig.portalUrl = portalUrl;
+        const universityMapId = "daf0e1ee311c49ab923898624e631234";
+        
+        const webmap = new WebMap({
+            portalItem: { id: universityMapId }
+        });
+        
+        const view = new MapView({
+            container: "viewDiv",
+            map: webmap,
+            center: [119.306, 26.08],   // 略微调整中心，便于展示福州市区高校
+            zoom: 12.2,                 // 放大地图初始比例，使高校标志更清晰
+            constraints: { snapToZoom: false }
+        });
+        
+        view.when(() => {
+            console.log("福州大学分布地图加载成功 | 初始缩放已放大至 12.2 级");
+            const loadingDiv = document.getElementById("loadingMsg");
+            if (loadingDiv) loadingDiv.style.display = "none";
+            
+            // 比例尺放在右下角，避免遮挡
+            const scaleBar = new ScaleBar({
+                view: view,
+                unit: "metric",
+                style: "ruler"
+            });
+            view.ui.add(scaleBar, "bottom-right");
+            
+            // 搜索微件置于右上角容器
+            const searchWidget = new Search({
+                view: view,
+                includeDefaultSources: true,
+                placeholder: "🔍 搜索大学名称 / 校区地点 / 地铁站",
+                autoNavigate: true,
+                locationEnabled: true
+            });
+            const searchContainer = document.getElementById("searchWidgetContainer");
+            if (searchContainer) {
+                searchWidget.container = searchContainer;
+            } else {
+                view.ui.add(searchWidget, "top-right");
+            }
+            
+            // 图层列表
+            const layerList = new LayerList({
+                view: view,
+                visibilityAppearance: "checkbox",
+                listItemCreatedFunction: (event) => {
+                    if (event.item.layer.type === "group") event.item.opened = true;
+                }
+            });
+            const layerDiv = document.getElementById("layerListContainer");
+            if (layerDiv) layerList.container = layerDiv;
+            
+            // 图例
+            const legend = new Legend({
+                view: view,
+                style: "card",
+                respectLayerVisibility: true
+            });
+            const legendDiv = document.getElementById("legendContainer");
+            if (legendDiv) legend.container = legendDiv;
+            
+            // 底图库
+            const basemapGallery = new BasemapGallery({
+                view: view,
+                source: { portal: { url: esriConfig.portalUrl } }
+            });
+            const galleryDiv = document.getElementById("basemapGalleryContainer");
+            if (galleryDiv) basemapGallery.container = galleryDiv;
+            
+            // 高校名录动态渲染
+            const universities = [
+                "福州大学", "福建理工大学", "福建农林大学", "福建医科大学", "福建中医药大学",
+                "福建师范大学", "闽江学院", "福建商学院", "福建警察学院", "福建江夏学院",
+                "福建技术师范学院", "福州工商学院", "阳光学院", "福州大学至诚学院", "福建师范大学协和学院",
+                "福州外语外贸学院", "福州理工学院", "福建农林大学金山学院", "福建福耀科技大学",
+                "福建船政交通职业学院", "福州职业技术学院", "福建信息职业技术学院", "福建农业职业技术学院",
+                "福建卫生职业技术学院", "福建生物工程职业技术学院", "福建艺术职业学院", "福建幼儿师范高等专科学校",
+                "福建体育职业技术学院", "闽江师范高等专科学校", "福建华南女子职业学院", "福州英华职业学院",
+                "福州黎明职业技术学院", "福州科技职业技术学院", "福州软件职业技术学院", "福州墨尔本理工职业学院"
+            ];
+            const uniContainer = document.getElementById("universityListContainer");
+            if (uniContainer) {
+                uniContainer.innerHTML = universities.slice(0, 24).map(name => `<span class="uni-badge">${name}</span>`).join('');
+                const moreSpan = document.createElement("span");
+                moreSpan.className = "uni-badge";
+                moreSpan.innerText = `+${universities.length - 24} 所高校 (含福耀科大等)`;
+                uniContainer.appendChild(moreSpan);
+                moreSpan.style.background = "#3a86c8";
+                moreSpan.style.color = "#ffffff";
+            }
+        });
+        
+        view.catch(err => {
+            console.error("福州大学地图加载失败:", err);
+            const msgDiv = document.getElementById("loadingMsg");
+            if (msgDiv) {
+                msgDiv.innerHTML = "⚠️ 地图资源可能需要登录，但底图与基础控件仍可用。";
+                msgDiv.style.background = "#845a2e";
+            }
+        });
+        
+        window.addEventListener("resize", () => view?.resize());
+    });
+</script>
+</body>
+</html>
