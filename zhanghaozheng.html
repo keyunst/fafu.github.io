@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>地震·台风 无界视界 | 中国自然灾害预警</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: #000000;
+        }
+
+        /* 地图全屏无边框 */
+        .map-universal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        #viewDiv {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ===== 全新微型悬浮轨道系统 ===== */
+        /* 左上角：极简搜索轨道 */
+        .search-orbit {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 50;
+            width: 280px;
+        }
+        .esri-search {
+            border-radius: 60px !important;
+            background: rgba(0, 0, 0, 0.7) !important;
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 100, 50, 0.6) !important;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3) !important;
+            width: 100% !important;
+        }
+        .esri-search__input {
+            color: #fff3e6 !important;
+            font-size: 0.8rem;
+        }
+        .esri-search__input::placeholder {
+            color: #ffcfaa !important;
+        }
+
+        /* 右下角：工具箱（圆形展开菜单） */
+        .toolbox-orbit {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            z-index: 60;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 12px;
+        }
+        /* 主控按钮 */
+        .toolbox-toggle {
+            width: 56px;
+            height: 56px;
+            background: rgba(15, 25, 35, 0.85);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 1px solid rgba(255, 110, 50, 0.7);
+            transition: all 0.2s;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+            font-size: 1.5rem;
+            color: #ffbb77;
+        }
+        .toolbox-toggle:hover {
+            background: #ff6633cc;
+            color: white;
+            transform: scale(0.96);
+        }
+        /* 展开面板：增加滚动区域，修复无法滑动的问题 */
+        .toolbox-menu {
+            position: absolute;
+            bottom: 70px;
+            right: 0;
+            background: rgba(10, 18, 26, 0.88);
+            backdrop-filter: blur(28px);
+            border-radius: 32px;
+            padding: 16px;
+            width: 340px;
+            max-height: 70vh;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 100, 50, 0.5);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+            opacity: 0;
+            visibility: hidden;
+            transition: 0.2s ease;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .toolbox-menu.active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        /* 自定义滚动条美观 */
+        .toolbox-menu::-webkit-scrollbar {
+            width: 4px;
+        }
+        .toolbox-menu::-webkit-scrollbar-track {
+            background: #2a3a3a;
+            border-radius: 10px;
+        }
+        .toolbox-menu::-webkit-scrollbar-thumb {
+            background: #ff7a3a;
+            border-radius: 10px;
+        }
+        .tool-section {
+            background: rgba(0, 0, 0, 0.45);
+            border-radius: 24px;
+            padding: 10px 0 12px 0;
+        }
+        .tool-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #ffbd7a;
+            padding: 0 14px 8px 16px;
+            border-left: 2px solid #ff7744;
+        }
+        .widget-compact {
+            padding: 0 10px;
+        }
+
+        /* 左下角：比例尺独立 */
+        .scale-corner {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            z-index: 55;
+        }
+        .esri-scale-bar {
+            background: rgba(0, 0, 0, 0.7) !important;
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 4px 12px;
+            color: #ffe3c6;
+            border: 1px solid #ff7744;
+        }
+
+        /* 隐藏原生缩放控件，使用自定义缩放条 */
+        .esri-zoom {
+            display: none !important;
+        }
+        /* 自定义简洁缩放垂直条（左下角比例尺旁） */
+        .custom-zoomer {
+            position: absolute;
+            bottom: 90px;
+            left: 24px;
+            background: rgba(0,0,0,0.65);
+            backdrop-filter: blur(16px);
+            border-radius: 48px;
+            padding: 8px 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 55;
+            border: 1px solid #ff8844;
+        }
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: #fadbaf;
+            background: rgba(0,0,0,0.6);
+            border-radius: 40px;
+            transition: 0.1s;
+        }
+        .zoom-btn:hover {
+            background: #ff6633cc;
+            color: white;
+        }
+
+        /* 右侧悬浮细数据带 */
+        .data-stream {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(16px);
+            border-radius: 48px;
+            padding: 8px 20px;
+            font-size: 0.7rem;
+            color: #ffddb0;
+            border-right: 2px solid #ff7744;
+            z-index: 40;
+            pointer-events: none;
+            font-weight: 500;
+        }
+
+        /* 微件深色适配 + 图例文字高对比 */
+        .esri-widget {
+            background: rgba(0, 0, 0, 0.75) !important;
+            border: 1px solid rgba(255, 100, 50, 0.5) !important;
+            border-radius: 20px !important;
+            color: #fdf3e2 !important;
+        }
+        .esri-legend__layer-title,
+        .esri-legend__service,
+        .esri-legend__layer-caption,
+        .esri-legend__symbol-label,
+        .esri-legend__label {
+            color: #ffffff !important;
+            font-weight: 600 !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+            background: rgba(0,0,0,0.5) !important;
+            padding: 2px 6px !important;
+            border-radius: 12px !important;
+            display: inline-block !important;
+        }
+
+        @media (max-width: 680px) {
+            .search-orbit { width: 240px; top: 12px; left: 12px; }
+            .toolbox-menu { width: 280px; right: 0; }
+            .data-stream { display: none; }
+        }
+
+        .load-tip {
+            position: absolute;
+            bottom: 20px;
+            left: 100px;
+            background: rgba(0,0,0,0.55);
+            border-radius: 40px;
+            padding: 4px 16px;
+            font-size: 10px;
+            color: #ffe0b5;
+            z-index: 30;
+        }
+    </style>
+</head>
+<body>
+<div class="map-universal">
+    <div id="viewDiv"></div>
+</div>
+
+<!-- 左上角搜索轨道 -->
+<div class="search-orbit" id="searchWidgetContainer"></div>
+
+<!-- 右侧简洁数据流 -->
+<div class="data-stream">
+    🌋 2025以来强震：定日6.8级 &nbsp;|&nbsp; 🌀 4号台风“森拉克”生成
+</div>
+
+<!-- 左下角：比例尺 + 自定义缩放条 -->
+<div class="scale-corner" id="scaleBarContainer"></div>
+<div class="custom-zoomer">
+    <div class="zoom-btn" id="zoomInBtn">+</div>
+    <div class="zoom-btn" id="zoomOutBtn">−</div>
+</div>
+
+<!-- 右下角工具箱：主控圆形按钮 + 悬浮菜单（包含底图库/图层/图例） -->
+<div class="toolbox-orbit">
+    <div class="toolbox-toggle" id="toolboxToggleBtn">🛠️</div>
+    <div class="toolbox-menu" id="toolboxMenu">
+        <div class="tool-section">
+            <div class="tool-title">🗺️ 应急底图库</div>
+            <div class="widget-compact" id="basemapMiniContainer"></div>
+        </div>
+        <div class="tool-section">
+            <div class="tool-title">📡 灾害图层显隐</div>
+            <div class="widget-compact" id="layerMiniContainer"></div>
+        </div>
+        <div class="tool-section">
+            <div class="tool-title">🎨 图例速览</div>
+            <div class="widget-compact" id="legendMiniContainer"></div>
+        </div>
+    </div>
+</div>
+
+<div class="load-tip" id="loadingMsg">🌀 加载地震·台风实时态势...</div>
+
+<script src="https://js.arcgis.com/4.29/"></script>
+<script>
+    require([
+        "esri/WebMap",
+        "esri/views/MapView",
+        "esri/config",
+        "esri/widgets/ScaleBar",
+        "esri/widgets/Legend",
+        "esri/widgets/Search",
+        "esri/widgets/LayerList",
+        "esri/widgets/BasemapGallery"
+    ], function(WebMap, MapView, esriConfig, ScaleBar, Legend, Search, LayerList, BasemapGallery) {
+
+        const portalUrl = "https://www.geosceneonline.cn/geoscene";
+        esriConfig.portalUrl = portalUrl;
+        const disasterMapId = "0de2058fa6734623b60a1a00ee07c4b0";
+
+        const webmap = new WebMap({
+            portalItem: { id: disasterMapId }
+        });
+
+        const view = new MapView({
+            container: "viewDiv",
+            map: webmap,
+            center: [108.0, 32.0],
+            zoom: 5.2,
+            constraints: { snapToZoom: false }
+        });
+
+        view.when(() => {
+            console.log("无界地震台风地图加载 | 全屏悬浮轨道布局");
+            const loadingDiv = document.getElementById("loadingMsg");
+            if (loadingDiv) loadingDiv.style.display = "none";
+
+            // 比例尺（独立左下角）
+            const scaleBar = new ScaleBar({
+                view: view,
+                unit: "metric",
+                style: "ruler"
+            });
+            const scaleContainer = document.getElementById("scaleBarContainer");
+            if (scaleContainer) scaleBar.container = scaleContainer;
+
+            // 搜索微件（左上角）
+            const searchWidget = new Search({
+                view: view,
+                includeDefaultSources: true,
+                placeholder: "🔍 搜索地震区、地名、台风影响区域",
+                autoNavigate: true,
+                locationEnabled: true
+            });
+            const searchContainer = document.getElementById("searchWidgetContainer");
+            if (searchContainer) searchWidget.container = searchContainer;
+
+            // 底图库（微型容器）
+            const basemapGallery = new BasemapGallery({
+                view: view,
+                source: { portal: { url: esriConfig.portalUrl } }
+            });
+            const basemapDiv = document.getElementById("basemapMiniContainer");
+            if (basemapDiv) basemapGallery.container = basemapDiv;
+
+            // 图层列表
+            const layerList = new LayerList({
+                view: view,
+                visibilityAppearance: "checkbox",
+                listItemCreatedFunction: (event) => {
+                    if (event.item.layer.type === "group") event.item.opened = true;
+                }
+            });
+            const layerDiv = document.getElementById("layerMiniContainer");
+            if (layerDiv) layerList.container = layerDiv;
+
+            // 图例
+            const legend = new Legend({
+                view: view,
+                style: "card",
+                respectLayerVisibility: true
+            });
+            const legendDiv = document.getElementById("legendMiniContainer");
+            if (legendDiv) legend.container = legendDiv;
+
+            // 自定义缩放按钮
+            document.getElementById("zoomInBtn").addEventListener("click", () => {
+                view.zoom = view.zoom + 1;
+            });
+            document.getElementById("zoomOutBtn").addEventListener("click", () => {
+                view.zoom = view.zoom - 1;
+            });
+
+            // 工具箱菜单切换（圆形按钮）
+            const toggleBtn = document.getElementById("toolboxToggleBtn");
+            const menuPanel = document.getElementById("toolboxMenu");
+            toggleBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                menuPanel.classList.toggle("active");
+            });
+            // 点击地图任意位置关闭菜单
+            view.on("click", () => {
+                if (menuPanel.classList.contains("active")) menuPanel.classList.remove("active");
+            });
+
+            console.log("布局完成：比例尺左下，自定义缩放左下，工具箱右下悬浮，菜单内可滚动");
+        });
+
+        view.catch(err => {
+            console.error("地图加载失败（需要登录权限或异常）", err);
+            const msgDiv = document.getElementById("loadingMsg");
+            if (msgDiv) {
+                msgDiv.innerHTML = "⚠️ 资源需登录验证，基础控件仍可交互";
+                msgDiv.style.backgroundColor = "#712e1a";
+            }
+        });
+
+        window.addEventListener("resize", () => view?.resize());
+    });
+</script>
+</body>
+</html>
