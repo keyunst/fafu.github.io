@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>龙岩 · 红土风华｜行政区划与人文全景图鉴</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: #2a2118;
+        }
+
+        .fullscreen-map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        #viewDiv {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ========= 顶部红土徽章——全新风格导航栏 ========= */
+        .red-soil-header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 45;
+            background: rgba(60, 38, 28, 0.82);
+            backdrop-filter: blur(20px);
+            border-radius: 56px;
+            padding: 0.5rem 1.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(200, 130, 70, 0.6);
+            pointer-events: auto;
+        }
+
+        .brand-wrapper {
+            display: flex;
+            align-items: baseline;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .brand-wrapper h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            background: linear-gradient(120deg, #f5cb8b, #d98c3c);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.2px;
+        }
+
+        .region-tag {
+            font-size: 0.7rem;
+            color: #f7deb5;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 4px 14px;
+            border-radius: 40px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .stat-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .stat-halo {
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(4px);
+            padding: 4px 14px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #ffdebc;
+            border-left: 2px solid #dd954a;
+        }
+
+        /* 搜索框容器（右上角显著位置） */
+        .search-embed {
+            min-width: 280px;
+        }
+        .esri-search {
+            border-radius: 48px !important;
+            background: rgba(0, 0, 0, 0.85) !important;
+            backdrop-filter: blur(12px);
+            border: 1px solid #e3a05c !important;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.3) !important;
+            width: 100% !important;
+        }
+        .esri-search__input {
+            color: #fff4e8 !important;
+            font-size: 0.85rem;
+        }
+        .esri-search__input::placeholder {
+            color: #eecdab !important;
+        }
+        .esri-search__submit-button,
+        .esri-search__clear-button {
+            background: rgba(200, 130, 70, 0.35) !important;
+            border-radius: 40px !important;
+        }
+
+        /* ========= 全新左侧——红土·文化走廊 ========= */
+        .left-corridor {
+            position: absolute;
+            left: 24px;
+            top: 110px;
+            bottom: 70px;
+            width: 310px;
+            background: rgba(32, 24, 20, 0.78);
+            backdrop-filter: blur(22px);
+            border-radius: 32px;
+            border: 1px solid rgba(210, 140, 80, 0.5);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 28;
+            box-shadow: 10px 12px 28px rgba(0, 0, 0, 0.35);
+            scrollbar-width: thin;
+        }
+
+        .left-corridor::-webkit-scrollbar {
+            width: 3px;
+        }
+        .left-corridor::-webkit-scrollbar-track {
+            background: #422c1e;
+            border-radius: 10px;
+        }
+        .left-corridor::-webkit-scrollbar-thumb {
+            background: #ca8852;
+            border-radius: 10px;
+        }
+
+        .culture-card {
+            background: rgba(0, 0, 0, 0.4);
+            margin: 18px 16px;
+            border-radius: 28px;
+            padding: 15px 0 16px 0;
+            backdrop-filter: blur(4px);
+        }
+
+        .card-header-red {
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 0 18px 10px 20px;
+            border-left: 4px solid #dc8b4a;
+            color: #ffecd3;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .lyric-text {
+            padding: 8px 20px;
+            font-size: 0.75rem;
+            color: #f6debc;
+            line-height: 1.45;
+            border-left: 2px solid #da7e3a;
+            margin: 2px 16px;
+        }
+
+        .heritage-list {
+            padding: 0 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .heritage-item {
+            background: rgba(60, 45, 35, 0.65);
+            border-radius: 24px;
+            padding: 8px 14px;
+            font-size: 0.75rem;
+            color: #fbe8cf;
+        }
+        .heritage-item strong {
+            color: #f7bf7a;
+        }
+
+        /* 右侧 行政区划完全手册 */
+        .right-division-panel {
+            position: absolute;
+            right: 24px;
+            top: 110px;
+            bottom: 70px;
+            width: 320px;
+            background: rgba(245, 240, 232, 0.92);
+            backdrop-filter: blur(20px);
+            border-radius: 36px;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(140, 90, 45, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 28;
+            color: #2f2c25;
+        }
+
+        .right-division-panel::-webkit-scrollbar {
+            width: 4px;
+        }
+        .right-division-panel::-webkit-scrollbar-track {
+            background: #ddd1c0;
+            border-radius: 10px;
+        }
+        .right-division-panel::-webkit-scrollbar-thumb {
+            background: #b5743a;
+            border-radius: 10px;
+        }
+
+        .division-card {
+            background: rgba(0, 0, 0, 0.03);
+            margin: 16px 14px;
+            border-radius: 24px;
+            padding: 12px 0 16px 0;
+            backdrop-filter: blur(2px);
+            border: 0.5px solid rgba(100, 70, 40, 0.2);
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 0 16px 8px 18px;
+            border-left: 3px solid #b56a2e;
+            color: #682c06;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .county-cloud {
+            padding: 0 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .county-badge {
+            background: rgba(108, 70, 36, 0.12);
+            border-radius: 40px;
+            padding: 4px 14px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #6e401d;
+            transition: 0.1s;
+            border: 0.3px solid #ac7443;
+        }
+        .town-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 5px;
+        }
+        .town-label {
+            background: rgba(160, 100, 40, 0.08);
+            padding: 3px 12px;
+            border-radius: 22px;
+            font-size: 0.65rem;
+            color: #52371d;
+        }
+
+        .widget-base {
+            padding: 0 12px;
+        }
+
+        /* 微件深色/亮色混合覆盖 */
+        .esri-widget {
+            background: rgba(255, 250, 240, 0.9) !important;
+            border: 1px solid rgba(160, 110, 60, 0.4) !important;
+            border-radius: 20px !important;
+            color: #2f2a24 !important;
+        }
+        .esri-widget__heading {
+            color: #b15d29 !important;
+        }
+        .esri-layer-list__item,
+        .esri-legend__service {
+            color: #3b2f23 !important;
+        }
+
+        /* 缩放与比例尺最关键：比例尺置于右下角，避免任何遮挡 */
+        .esri-zoom {
+            margin-bottom: 12px !important;
+            background: rgba(40, 28, 20, 0.8) !important;
+            border-radius: 48px !important;
+            border: 1px solid #c67b3e;
+        }
+        .esri-scale-bar {
+            background: rgba(55, 36, 24, 0.8) !important;
+            backdrop-filter: blur(8px);
+            border-radius: 28px;
+            padding: 4px 12px;
+            color: #fee3c5;
+            border: 1px solid #cd8042;
+        }
+        .esri-attribution {
+            background: rgba(0, 0, 0, 0.55) !important;
+            border-radius: 20px;
+            font-size: 9px;
+            bottom: 8px !important;
+            right: 8px !important;
+            color: #e7c69e;
+        }
+
+        @media (max-width: 880px) {
+            .left-corridor, .right-division-panel { width: 260px; }
+            .search-embed { min-width: 220px; }
+            .red-soil-header { padding: 0.5rem 1.2rem; flex-wrap: wrap; gap: 10px; }
+            .brand-wrapper h1 { font-size: 1rem; }
+        }
+        @media (max-width: 740px) {
+            .left-corridor, .right-division-panel { display: none; }
+        }
+
+        .load-notice {
+            position: absolute;
+            bottom: 20px;
+            left: 24px;
+            background: rgba(40, 28, 18, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 6px 18px;
+            border-radius: 60px;
+            font-size: 11px;
+            color: #ffefdc;
+            z-index: 30;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<div class="fullscreen-map">
+    <div id="viewDiv"></div>
+</div>
+
+<!-- 全新顶部红土徽章风格 含搜索框/比例尺预留 -->
+<div class="red-soil-header">
+    <div class="brand-wrapper">
+        <h1>🗺️ 龙岩 · 行政区划全景 | 红土风华</h1>
+        <span class="region-tag">1区4县1市 · 客家祖地 · 古田会议永放光芒</span>
+    </div>
+    <div class="header-actions">
+        <div class="stat-group">
+            <span class="stat-halo">🌾 2区 / 4县 / 1县级市</span>
+            <span class="stat-halo">🏯 福建土楼 · 世界文化遗产</span>
+            <span class="stat-halo">🔴 古田会议旧址</span>
+        </div>
+        <!-- 搜索框坚固嵌入右上 -->
+        <div class="search-embed" id="searchWidgetContainer"></div>
+    </div>
+</div>
+
+<!-- 左侧：红土文化走廊 (龙岩客家/土楼/革命元素) -->
+<div class="left-corridor">
+    <div class="culture-card">
+        <div class="card-header-red">
+            <span>🏮 红土 · 客家印象</span>
+            <span style="font-size: 10px;">方圆之间 精神原乡</span>
+        </div>
+        <div class="lyric-text">
+            “土楼依山傍水建，圆方藏尽世间缘” 
+        </div>
+        <div class="heritage-list">
+            <div class="heritage-item"><strong>🧱 永定客家土楼</strong> — 世界文化遗产，彰显客家“聚族而居”的古老智慧</div>
+            <div class="heritage-item"><strong>🔥 古田会议会址</strong> — 确立思想建党、政治建军原则的光辉里程碑</div>
+            <div class="heritage-item"><strong>🍃 长汀古城</strong> — 客家首府，汀江母亲河孕育千年人文</div>
+            <div class="heritage-item"><strong>⛰️ 冠豸山·龙硿洞</strong> — 丹霞地貌与喀斯特山水奇观交相辉映</div>
+        </div>
+    </div>
+    <div class="culture-card">
+        <div class="card-header-red">
+            <span>📖 闽西诗词咏叹</span>
+        </div>
+        <div class="lyric-text">
+            ｜红旗跃过汀江，直下龙岩上杭｜ <br>
+            ｜收拾金瓯一片，分田分地真忙｜<br>
+            —— 毛泽东《清平乐·蒋桂战争》
+        </div>
+        <div style="padding: 8px 18px 2px; font-size: 0.7rem; color: #e9cca5;">
+            ✨ “龙岩”之名，取自翠屏山麓龙岩洞，岩纹如龙鳞，是全国唯一以“龙”命名的地级市。
+        </div>
+    </div>
+</div>
+
+<!-- 右侧：行政区划集成面板（包含底图库、图层、图例，以及乡镇全览） -->
+<div class="right-division-panel">
+    <div class="division-card">
+        <div class="section-title">
+            <span>📌 龙岩行政区划 · 县级单元</span>
+            <span style="font-size: 10px;">2区4县1市</span>
+        </div>
+        <div class="county-cloud" id="countyGroupContainer">
+            <!-- 动态注入新罗/永定等 -->
+        </div>
+        <div style="padding: 6px 20px 0; font-size: 0.6rem; color: #6f522f;">✨ 7个县级行政区，133个乡镇街道绘就闽西版图</div>
+    </div>
+
+    <!-- 底图库微件 -->
+    <div class="division-card">
+        <div class="section-title">
+            <span>🗺️ 底图库</span>
+            <span style="font-size: 10px;">地形·影像·矢量</span>
+        </div>
+        <div class="widget-base" id="basemapGalleryContainer"></div>
+    </div>
+
+    <!-- 图层列表微件（行政区划专题） -->
+    <div class="division-card">
+        <div class="section-title">
+            <span>📂 专题图层控制</span>
+            <span style="font-size: 10px;">区县界/乡镇驻地/交通</span>
+        </div>
+        <div class="widget-base" id="layerListContainer"></div>
+    </div>
+
+    <!-- 图例微件 -->
+    <div class="division-card">
+        <div class="section-title">
+            <span>🎨 图例索引</span>
+        </div>
+        <div class="widget-base" id="legendContainer"></div>
+    </div>
+
+    <!-- 永定 / 古田 亮点乡镇快览 -->
+    <div class="division-card" style="margin-bottom: 20px;">
+        <div class="section-title">
+            <span>🏞️ 重点乡镇 · 永定&古田</span>
+        </div>
+        <div class="town-cloud" id="townExampleContainer"></div>
+        <div style="padding: 8px 18px 6px; font-size: 0.68rem; color: #745526; border-top: 0.5px dashed #d6b280; margin-top: 8px;">
+            💡 古田会议旧址所在地 · 永定客家土楼群享誉世界。
+        </div>
+    </div>
+</div>
+
+<div class="load-notice" id="loadingMsg">🟤 红土地标 · 龙岩行政区划数字图鉴...</div>
+
+<script src="https://js.arcgis.com/4.29/"></script>
+<script>
+    require([
+        "esri/WebMap",
+        "esri/views/MapView",
+        "esri/config",
+        "esri/widgets/ScaleBar",
+        "esri/widgets/Legend",
+        "esri/widgets/Search",
+        "esri/widgets/LayerList",
+        "esri/widgets/BasemapGallery"
+    ], function(WebMap, MapView, esriConfig, ScaleBar, Legend, Search, LayerList, BasemapGallery) {
+
+        const portalUrl = "https://www.geosceneonline.cn/geoscene";
+        esriConfig.portalUrl = portalUrl;
+        const longyanMapId = "46809b6d460147c19478d7f902cb1d80";   // 龙岩市行政区划图
+
+        const webmap = new WebMap({
+            portalItem: { id: longyanMapId }
+        });
+
+        const view = new MapView({
+            container: "viewDiv",
+            map: webmap,
+            center: [116.98, 25.19],   // 龙岩市区几何中心
+            zoom: 11.5,                 // 适中缩放，展现全市行政区划细节
+            constraints: { snapToZoom: false }
+        });
+
+        view.when(() => {
+            console.log("龙岩行政区划地图加载成功 | 比例尺置于右下角，全新红土主题布局");
+            const loadingDiv = document.getElementById("loadingMsg");
+            if (loadingDiv) loadingDiv.style.display = "none";
+
+            // ★★ 最关键修改：比例尺固定在右下角，不受任何面板遮挡 ★★
+            const scaleBar = new ScaleBar({
+                view: view,
+                unit: "metric",
+                style: "ruler"
+            });
+            view.ui.add(scaleBar, "bottom-right");
+
+            // 搜索框容器（位于右上角，安全区）
+            const searchWidget = new Search({
+                view: view,
+                includeDefaultSources: true,
+                placeholder: "🔍 搜索区县 / 乡镇 / 红色地标  (如：古田、永定土楼)",
+                autoNavigate: true,
+                locationEnabled: true
+            });
+            const searchContainer = document.getElementById("searchWidgetContainer");
+            if (searchContainer) {
+                searchWidget.container = searchContainer;
+            } else {
+                view.ui.add(searchWidget, "top-right");
+            }
+
+            // 图层列表（右侧面板）
+            const layerList = new LayerList({
+                view: view,
+                visibilityAppearance: "checkbox",
+                listItemCreatedFunction: (event) => {
+                    if (event.item.layer.type === "group") event.item.opened = true;
+                }
+            });
+            const layerDiv = document.getElementById("layerListContainer");
+            if (layerDiv) layerList.container = layerDiv;
+
+            // 图例
+            const legend = new Legend({
+                view: view,
+                style: "card",
+                respectLayerVisibility: true
+            });
+            const legendDiv = document.getElementById("legendContainer");
+            if (legendDiv) legend.container = legendDiv;
+
+            // 底图库
+            const basemapGallery = new BasemapGallery({
+                view: view,
+                source: { portal: { url: esriConfig.portalUrl } }
+            });
+            const galleryDiv = document.getElementById("basemapGalleryContainer");
+            if (galleryDiv) basemapGallery.container = galleryDiv;
+
+            // 缩放控件保持左下角，与右下角比例尺互不干扰
+            view.ui.move("zoom", "bottom-left");
+
+            // 动态展示龙岩市县级行政区划（根据权威公开数据渲染）
+            const counties = ["新罗区", "永定区", "长汀县", "上杭县", "武平县", "连城县", "漳平市"];
+            const countyContainer = document.getElementById("countyGroupContainer");
+            if (countyContainer) {
+                countyContainer.innerHTML = counties.map(cnt => `<span class="county-badge">${cnt}</span>`).join('');
+            }
+
+            // 重点乡镇示例（融合古田/永定特色）
+            const townsFeatures = [
+                "古田镇（上杭）", "才溪镇（模范乡）", "湖坑镇（土楼）", "下洋镇（初溪土楼）",
+                "坎市镇", "凤城街道", "汀州镇（长汀古城）", "适中镇", "西陂街道（新罗）", "高陂镇"
+            ];
+            const townContainer = document.getElementById("townExampleContainer");
+            if (townContainer) {
+                townContainer.innerHTML = townsFeatures.map(t => `<span class="town-label">🏘️ ${t}</span>`).join('');
+            }
+
+            console.log("右侧面板已填充龙岩7个县市区及重点乡镇名单，比例尺安全位于右下角");
+        });
+
+        view.catch(err => {
+            console.error("龙岩行政区划地图加载失败:", err);
+            const msgDiv = document.getElementById("loadingMsg");
+            if (msgDiv) {
+                msgDiv.innerHTML = "⚠️ 地图资源需验证访问权限，但底图、图层微件仍可尝试使用。";
+                msgDiv.style.background = "#8a4f27";
+            }
+        });
+
+        window.addEventListener("resize", () => view?.resize());
+    });
+</script>
+</body>
+</html>
